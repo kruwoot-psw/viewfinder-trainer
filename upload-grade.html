@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M4 — อัปโหลดภาพ/วิดีโอมาตรวจ | Viewfinder Trainer</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--txt:#e6edf3;--dim:#8b949e;
+        --acc:#58a6ff;--ok:#3fb950;--warn:#d29922;--bad:#f85149;--pur:#bc8cff}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Sarabun",system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:16px;max-width:1280px;margin:0 auto}
+  h1{font-size:21px} .sub{color:var(--dim);font-size:13px;margin:3px 0 14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:15px;margin-bottom:13px}
+  .card h3{font-size:13.5px;color:var(--dim);margin-bottom:11px;letter-spacing:.3px;font-weight:600}
+  input,select,button,textarea{background:#0d1117;color:var(--txt);border:1px solid var(--line);
+    border-radius:8px;padding:8px 12px;font-family:inherit;font-size:14px}
+  textarea{width:100%;resize:vertical;line-height:1.7}
+  button{background:#21262d;cursor:pointer}button:hover{border-color:var(--acc)}
+  button.primary{background:var(--acc);color:#04121f;font-weight:700;border-color:var(--acc)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  /* โซนลากวาง */
+  #drop{border:2px dashed var(--line);border-radius:14px;padding:34px;text-align:center;cursor:pointer;transition:.15s}
+  #drop:hover,#drop.over{border-color:var(--acc);background:rgba(88,166,255,.06)}
+  #drop .big{font-size:40px}#drop .t{font-size:16px;font-weight:700;margin:6px 0 3px}
+  #drop .d{font-size:12.5px;color:var(--dim)}
+  /* การ์ดผลภาพ */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:13px}
+  .res{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .res .thumb{position:relative;background:#000;aspect-ratio:16/9}
+  .res .thumb canvas{width:100%;height:100%;object-fit:contain;display:block}
+  .res .badge{position:absolute;top:7px;right:7px;border-radius:8px;padding:3px 10px;font-weight:800;font-size:15px}
+  .res .fname{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.9));
+    padding:16px 9px 6px;font-size:11.5px;color:#c9d1d9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .res .body{padding:11px}
+  .kv{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px dashed #21262d}
+  .kv:last-of-type{border:0}.kv b{font-weight:700}
+  ul.fb{list-style:none;font-size:12.5px;line-height:1.55;margin-top:7px}
+  ul.fb li{padding:4px 0 4px 17px;position:relative}
+  ul.fb li:before{content:"▸";position:absolute;left:2px;color:var(--warn)}
+  ul.fb li.ok:before{content:"✓";color:var(--ok)}
+  .g{background:rgba(63,185,80,.2);color:var(--ok)}.y{background:rgba(210,153,34,.2);color:var(--warn)}
+  .r{background:rgba(248,81,73,.2);color:var(--bad)}.p{background:rgba(188,140,255,.2);color:var(--pur)}
+  /* timeline วิดีโอ */
+  .tl{display:flex;gap:3px;overflow-x:auto;padding:6px 0}
+  .tl .sh{flex:0 0 118px;border:2px solid var(--line);border-radius:9px;overflow:hidden;background:#000;position:relative}
+  .tl .sh.hit{border-color:var(--ok)}.tl .sh.miss{border-color:var(--bad)}
+  .tl .sh canvas{width:100%;display:block;aspect-ratio:16/9;object-fit:cover}
+  .tl .sh .lb{font-size:11px;padding:4px 5px;background:var(--panel);text-align:center;line-height:1.4}
+  .tl .sh .no{position:absolute;top:3px;left:3px;background:rgba(0,0,0,.75);border-radius:5px;padding:0 6px;font-size:11px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:7px 8px;text-align:left;border-bottom:1px solid #21262d;white-space:nowrap}
+  th{color:var(--dim);font-weight:600}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-bottom:12px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px}
+  .kpi .n{font-size:27px;font-weight:800;line-height:1.1}.kpi .l{font-size:11.5px;color:var(--dim)}
+  .prog{height:6px;background:#21262d;border-radius:3px;overflow:hidden;margin-top:9px}
+  .prog i{display:block;height:100%;background:var(--acc);width:0;transition:.2s}
+  .note{font-size:12px;color:var(--dim);line-height:1.55;margin-top:7px}
+  .hide{display:none}
+  .tabs{display:flex;gap:6px;margin-bottom:12px}
+  .tabs button.on{background:var(--acc);color:#04121f;font-weight:700;border-color:var(--acc)}
+</style>
+</head>
+<body>
+
+<h1>📤 M4 — อัปโหลดภาพ/วิดีโอมาตรวจ</h1>
+<p class="sub">ตรวจขนาดภาพ มุมกล้อง องค์ประกอบ และลำดับช็อตเทียบสตอรีบอร์ด • ประมวลผลในเครื่อง ไฟล์ไม่ถูกส่งออกนอกอุปกรณ์</p>
+
+<div class="tabs">
+  <button id="tabImg" class="on">🖼️ ตรวจภาพนิ่ง</button>
+  <button id="tabVid">🎞️ ตรวจวิดีโอ (ลำดับช็อต)</button>
+</div>
+
+<!-- ═══════════ โหมดภาพนิ่ง ═══════════ -->
+<div id="paneImg">
+  <div class="card">
+    <h3>1. ตั้งโจทย์</h3>
+    <div class="bar">
+      <select id="mode">
+        <option value="fixed">โจทย์เดียวกันทุกภาพ</option>
+        <option value="seq">ไล่ตามชุดภารกิจ (ภาพที่ 1 = ภารกิจ 1)</option>
+        <option value="free">ไม่มีโจทย์ — ให้ระบบบอกว่าเป็นช็อตอะไร</option>
+      </select>
+      <select id="tShot"></select>
+      <select id="tAngle"></select>
+      <input id="stuName" placeholder="ชื่อนักเรียน (ไม่บังคับ)" style="width:190px">
+      <input id="stuRoom" placeholder="ห้อง" style="width:80px">
+    </div>
+    <p class="note">โหมด “ไล่ตามชุดภารกิจ” จะเรียงไฟล์ตามชื่อ แล้วจับคู่กับภารกิจที่ 1–8 ตามลำดับ เหมาะกับใบงานถ่าย 8 ภาพส่งครั้งเดียว</p>
+  </div>
+
+  <div class="card">
+    <h3>2. เลือกไฟล์ภาพ (เลือกหลายไฟล์พร้อมกันได้)</h3>
+    <div id="drop"><div class="big">🖼️</div><div class="t">ลากไฟล์มาวาง หรือคลิกเพื่อเลือก</div>
+      <div class="d">รองรับ JPG / PNG / WebP • ตรวจได้ครั้งละหลายสิบภาพ</div></div>
+    <input type="file" id="fileImg" accept="image/*" multiple class="hide">
+    <div class="prog"><i id="pbImg"></i></div>
+    <div class="note" id="stImg">พร้อมทำงาน</div>
+  </div>
+
+  <div class="kpis hide" id="kpiImg">
+    <div class="kpi"><div class="n" id="kN">0</div><div class="l">ภาพที่ตรวจ</div></div>
+    <div class="kpi"><div class="n" id="kAvg">0.0</div><div class="l">คะแนนเฉลี่ย /10</div></div>
+    <div class="kpi"><div class="n" id="kPass">0</div><div class="l">ผ่านเกณฑ์ (≥8)</div></div>
+    <div class="kpi"><div class="n" id="kFail">0</div><div class="l">ตรวจไม่ได้ (ไม่พบคน)</div></div>
+  </div>
+  <div class="bar hide" id="barImg" style="margin-bottom:12px">
+    <button id="csvImg">⬇ ดาวน์โหลด CSV</button>
+    <button id="sendImg">☁ ส่งคะแนนเข้าระบบ</button>
+    <button id="clrImg">🗑 ล้างผล</button>
+  </div>
+  <div class="grid" id="outImg"></div>
+</div>
+
+<!-- ═══════════ โหมดวิดีโอ ═══════════ -->
+<div id="paneVid" class="hide">
+  <div class="card">
+    <h3>1. สตอรีบอร์ดเฉลย (ลำดับช็อตที่ต้องการ)</h3>
+    <textarea id="sb" rows="4">ELS/EYE, MS/EYE, MCU/LOW, CU/EYE, MS/EYE</textarea>
+    <p class="note">รูปแบบ <b>ขนาด/มุม</b> คั่นด้วยจุลภาค • ขนาด: ELS LS MLS MS MCU CU ECU • มุม: BIRD HIGH EYE LOW WORM • ใส่ <b>ANY</b> ถ้าไม่กำหนดมุม เช่น <code>CU/ANY</code></p>
+    <div class="bar" style="margin-top:9px">
+      <label style="font-size:13px;color:var(--dim)">สุ่มเฟรมทุก</label>
+      <select id="step"><option value="0.4">0.4 วิ (ละเอียด)</option><option value="0.8" selected>0.8 วิ (สมดุล)</option><option value="1.5">1.5 วิ (เร็ว)</option></select>
+      <label style="font-size:13px;color:var(--dim)">ความไวจับรอยตัด</label>
+      <input type="range" id="cut" min="15" max="70" value="38" style="width:130px">
+      <b id="cutV" style="font-size:13px">38</b>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>2. เลือกไฟล์วิดีโอ</h3>
+    <div id="drop2"><div class="big">🎞️</div><div class="t">ลากคลิปมาวาง หรือคลิกเพื่อเลือก</div>
+      <div class="d">MP4 / MOV / WebM • แนะนำไม่เกิน 3 นาที</div></div>
+    <input type="file" id="fileVid" accept="video/*" class="hide">
+    <video id="vid" class="hide" playsinline muted></video>
+    <div class="prog"><i id="pbVid"></i></div>
+    <div class="note" id="stVid">พร้อมทำงาน</div>
+  </div>
+
+  <div id="outVid"></div>
+</div>
+
+<script type="module">
+import { FilesetResolver, PoseLandmarker, FaceLandmarker }
+  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+/* ══════════ 1. นิยามความรู้ (ชุดเดียวกับ M3) ══════════ */
+const SHOT_ORDER=['ELS','LS','MLS','MS','MCU','CU','ECU'];
+const SHOT={ELS:{th:'ระยะไกลมาก'},LS:{th:'ระยะไกล/เต็มตัว'},MLS:{th:'ครึ่งเข่า'},MS:{th:'ครึ่งตัว (เอว)'},
+  MCU:{th:'อกขึ้นศีรษะ'},CU:{th:'ภาพใกล้ (ใบหน้า)'},ECU:{th:'ใกล้มาก (เฉพาะส่วน)'}};
+const ANGLE={BIRD:{th:'มุมสูงมาก/ตานก',full:"Bird's Eye"},HIGH:{th:'มุมสูง (กดกล้อง)',full:'High Angle'},
+  EYE:{th:'ระดับสายตา',full:'Eye Level'},LOW:{th:'มุมต่ำ (เงยกล้อง)',full:'Low Angle'},
+  WORM:{th:'มุมต่ำมาก/ตาหนอน',full:"Worm's Eye"}};
+const MISSIONS=[{shot:'MCU',angle:'EYE'},{shot:'CU',angle:'EYE'},{shot:'MS',angle:'EYE'},
+  {shot:'MCU',angle:'LOW'},{shot:'MCU',angle:'HIGH'},{shot:'LS',angle:'EYE'},
+  {shot:'ECU',angle:'EYE'},{shot:'MS',angle:'LOW'}];
+const TH_A1=12, TH_A2=35, TH_ROLL=10;   // เกณฑ์มุม (ปรับได้)
+
+const $=id=>document.getElementById(id);
+SHOT_ORDER.forEach(s=>$('tShot').add(new Option(`${s} — ${SHOT[s].th}`,s)));
+Object.keys(ANGLE).forEach(a=>$('tAngle').add(new Option(`${ANGLE[a].full} — ${ANGLE[a].th}`,a)));
+$('tShot').value='MCU'; $('tAngle').value='EYE';
+$('cut').oninput=()=>$('cutV').textContent=$('cut').value;
+
+/* ══════════ 2. โหลดโมเดลแบบ IMAGE mode ══════════ */
+$('stImg').textContent='กำลังโหลดโมเดล AI…';
+const vision=await FilesetResolver.forVisionTasks(
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+const pose=await PoseLandmarker.createFromOptions(vision,{
+  baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task",delegate:"GPU"},
+  runningMode:"IMAGE",numPoses:1,minPoseDetectionConfidence:0.4});
+const face=await FaceLandmarker.createFromOptions(vision,{
+  baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",delegate:"GPU"},
+  runningMode:"IMAGE",numFaces:1,outputFacialTransformationMatrixes:true});
+$('stImg').textContent=$('stVid').textContent='โมเดลพร้อมแล้ว ✓';
+
+/* ══════════ 3. เอนจินจำแนก (คัดลอกตรงจาก M3) ══════════ */
+const vis=p=>p?(p.visibility===undefined?1:p.visibility):0;
+const inFrame=(p,t=0.5)=>p&&vis(p)>t&&p.y>-0.02&&p.y<0.985&&p.x>-0.05&&p.x<1.05;
+const deg=r=>r*180/Math.PI;
+function matrixToEuler(m){const r00=m[0],r10=m[1],r20=m[2],r21=m[6],r22=m[10];
+  const sy=Math.hypot(r00,r10);
+  if(sy<1e-6)return{pitch:deg(Math.atan2(-r21,r22)),yaw:deg(Math.atan2(-r20,sy)),roll:0};
+  return{pitch:deg(Math.atan2(r21,r22)),yaw:deg(Math.atan2(-r20,sy)),roll:deg(Math.atan2(r10,r00))};}
+
+function classifyShot(L,F){
+  let headTop,chinY;
+  if(F){let mn=9,mx=-9;for(const p of F){if(p.y<mn)mn=p.y;if(p.y>mx)mx=p.y;}
+    const fh=mx-mn;headTop=mn-fh*0.22;chinY=mx;}
+  else if(L){const eyeY=(L[2].y+L[5].y)/2,d=Math.abs(L[0].y-eyeY)||0.03;
+    headTop=eyeY-d*2.3;chinY=L[0].y+d*1.7;}
+  else return null;
+  const headH=Math.max(chinY-headTop,0.001);let shot;
+  if(!L){shot=headH>0.82?'ECU':headH>0.42?'CU':'MCU';}
+  else{const ankle=inFrame(L[27])||inFrame(L[28]),knee=inFrame(L[25])||inFrame(L[26]),
+        hip=inFrame(L[23])||inFrame(L[24]),shoul=inFrame(L[11])||inFrame(L[12]);
+    if(ankle){const bh=Math.max(L[27].y,L[28].y)-headTop;shot=bh<0.42?'ELS':'LS';}
+    else if(knee)shot='MLS'; else if(hip)shot='MS';
+    else if(shoul)shot=headH>0.52?'CU':'MCU'; else shot=headH>0.82?'ECU':'CU';}
+  const eyeY=F?(F[159].y+F[386].y)/2:(L?(L[2].y+L[5].y)/2:null);
+  const cx=F?F.reduce((a,p)=>a+p.x,0)/F.length:(L?L[0].x:0.5);
+  return{shot,headTop,chinY,headH,eyeY,cx};
+}
+function classifyAngle(mats,L){
+  let pitch=null,yaw=0,roll=0;
+  if(mats&&mats.length){const e=matrixToEuler(mats[0].data);pitch=e.pitch;yaw=e.yaw;roll=e.roll;}
+  if(L&&inFrame(L[2])&&inFrame(L[5])){roll=deg(Math.atan2(L[5].y-L[2].y,L[5].x-L[2].x));
+    if(roll>90)roll-=180;if(roll<-90)roll+=180;}
+  let angle='EYE';
+  if(pitch!==null){if(pitch>TH_A2)angle='WORM';else if(pitch>TH_A1)angle='LOW';
+    else if(pitch<-TH_A2)angle='BIRD';else if(pitch<-TH_A1)angle='HIGH';}
+  return{angle,pitch,yaw,roll};
+}
+function grade(s,a,target){
+  const fb=[];let pts=0;
+  const di=SHOT_ORDER.indexOf(s.shot),ti=SHOT_ORDER.indexOf(target.shot),gap=di-ti;
+  if(gap===0){pts+=4;fb.push({ok:1,t:`ขนาดภาพถูกต้อง: ${target.shot} ${SHOT[target.shot].th}`});}
+  else if(Math.abs(gap)===1){pts+=2;fb.push({ok:0,t:`ใกล้แล้ว — ได้ ${s.shot} โจทย์คือ ${target.shot} ${gap<0?'(ควรเข้าใกล้อีกนิด)':'(ควรถอยออกอีกนิด)'}`});}
+  else fb.push({ok:0,t:`ขนาดภาพไม่ตรง — ได้ ${s.shot} โจทย์คือ ${target.shot} ${gap<0?'ต้องเข้าใกล้อีก '+Math.abs(gap)+' ระดับ':'ต้องถอยออกอีก '+gap+' ระดับ'}`});
+  const anyA = target.angle==='ANY';
+  if(anyA){pts+=3;fb.push({ok:1,t:`มุมกล้อง: ${ANGLE[a.angle].full} (โจทย์ไม่กำหนด)`});}
+  else if(a.angle===target.angle){pts+=3;fb.push({ok:1,t:`มุมกล้องถูกต้อง: ${ANGLE[target.angle].full}`});}
+  else fb.push({ok:0,t:`มุมกล้องได้ ${ANGLE[a.angle].full} แต่ต้องการ ${ANGLE[target.angle].full}`});
+  const hr=s.headTop, needHead=target.shot!=='ECU';
+  if(!needHead||(hr>=0.02&&hr<=0.14)){pts+=1;if(needHead)fb.push({ok:1,t:`Headroom กำลังดี (${(hr*100).toFixed(0)}%)`});}
+  else fb.push({ok:0,t:hr>0.14?`หัวต่ำไป ที่ว่างเหนือศีรษะ ${(hr*100).toFixed(0)}% มากเกิน`:'ศีรษะชิดขอบบนเกินไป'});
+  if(s.eyeY!==null&&Math.abs(s.eyeY-0.333)<0.08){pts+=1;fb.push({ok:1,t:'ดวงตาอยู่แนวเส้นสามส่วนบน'});}
+  else if(s.eyeY!==null)fb.push({ok:0,t:`เส้นตาอยู่ที่ ${(s.eyeY*100).toFixed(0)}% ควรใกล้ 33%`});
+  if(Math.abs(a.roll)<TH_ROLL){pts+=1;fb.push({ok:1,t:'ระนาบภาพตรง ไม่เอียง'});}
+  else fb.push({ok:0,t:`ภาพเอียง ${a.roll.toFixed(0)}° (ถ้าตั้งใจทำ Dutch Angle ให้ครูยกเว้นข้อนี้)`});
+  return{pts:Math.min(pts,10),fb,match:(gap===0&&(anyA||a.angle===target.angle))};
+}
+/** วิเคราะห์ 1 เฟรม จาก canvas/image element */
+function analyze(src){
+  const pr=pose.detect(src), fr=face.detect(src);
+  const L=pr.landmarks?.[0]||null, F=fr.faceLandmarks?.[0]||null;
+  if(!L&&!F) return null;
+  const s=classifyShot(L,F);
+  const a=classifyAngle(fr.facialTransformationMatrixes,L);
+  return{s,a};
+}
+
+/* ══════════ 4. แท็บ ══════════ */
+$('tabImg').onclick=()=>{$('tabImg').classList.add('on');$('tabVid').classList.remove('on');
+  $('paneImg').classList.remove('hide');$('paneVid').classList.add('hide');};
+$('tabVid').onclick=()=>{$('tabVid').classList.add('on');$('tabImg').classList.remove('on');
+  $('paneVid').classList.remove('hide');$('paneImg').classList.add('hide');};
+
+/* ══════════ 5. โหมดภาพนิ่ง ══════════ */
+let results=[];
+function hookDrop(zone,input,cb){
+  zone.onclick=()=>input.click();
+  zone.ondragover=e=>{e.preventDefault();zone.classList.add('over');};
+  zone.ondragleave=()=>zone.classList.remove('over');
+  zone.ondrop=e=>{e.preventDefault();zone.classList.remove('over');cb([...e.dataTransfer.files]);};
+  input.onchange=()=>cb([...input.files]);
+}
+hookDrop($('drop'),$('fileImg'),runImages);
+
+async function runImages(files){
+  files=files.filter(f=>f.type.startsWith('image/')).sort((a,b)=>a.name.localeCompare(b.name,'th',{numeric:true}));
+  if(!files.length) return;
+  $('kpiImg').classList.remove('hide'); $('barImg').classList.remove('hide');
+  for(let i=0;i<files.length;i++){
+    $('stImg').textContent=`กำลังตรวจ ${i+1}/${files.length} — ${files[i].name}`;
+    $('pbImg').style.width=((i+1)/files.length*100)+'%';
+    await gradeImage(files[i], i);
+    await new Promise(r=>setTimeout(r,10));   // ปล่อยให้ UI อัปเดต
+  }
+  $('stImg').textContent=`ตรวจเสร็จ ${files.length} ภาพ ✓`;
+  updateKpi();
+}
+async function gradeImage(file,idx){
+  const img=await loadImg(file);
+  const W=Math.min(img.naturalWidth,960), H=img.naturalHeight*W/img.naturalWidth;
+  const c=document.createElement('canvas'); c.width=W; c.height=H;
+  c.getContext('2d').drawImage(img,0,0,W,H);
+  const r=analyze(c);
+  const mode=$('mode').value;
+  const target = mode==='seq' ? MISSIONS[idx%MISSIONS.length]
+               : mode==='free'? null : {shot:$('tShot').value,angle:$('tAngle').value};
+  const card=document.createElement('div'); card.className='res';
+  const holder=document.createElement('div'); holder.className='thumb'; holder.appendChild(c);
+  card.appendChild(holder);
+  const b=document.createElement('div'); b.className='body'; card.appendChild(b);
+  const fn=document.createElement('div'); fn.className='fname'; fn.textContent=file.name; holder.appendChild(fn);
+
+  if(!r){
+    b.innerHTML=`<div class="kv"><span>ผลตรวจ</span><b style="color:var(--warn)">ไม่พบบุคคลในภาพ</b></div>
+      <p class="note">ระบบตรวจจับจากร่างกาย/ใบหน้า ภาพวิว ภาพสิ่งของ หรือคนหันหลังสนิทจะตรวจไม่ได้ — ให้ครูตรวจด้วยตนเอง</p>`;
+    holder.insertAdjacentHTML('beforeend','<span class="badge p">N/A</span>');
+    results.push({file:file.name,ok:false}); $('outImg').prepend(card); return;
+  }
+  const {s,a}=r;
+  drawOverlay(c, s, target);
+  if(target){
+    const g=grade(s,a,target);
+    const cl=g.pts>=8?'g':g.pts>=5?'y':'r';
+    holder.insertAdjacentHTML('beforeend',`<span class="badge ${cl}">${g.pts.toFixed(1)}</span>`);
+    b.innerHTML=`<div class="kv"><span>โจทย์</span><b style="color:var(--acc)">${target.shot} + ${ANGLE[target.angle]?.full||'ไม่กำหนด'}</b></div>
+      <div class="kv"><span>ตรวจได้</span><b style="color:${g.match?'var(--ok)':'var(--bad)'}">${s.shot} + ${ANGLE[a.angle].full}</b></div>
+      <div class="kv"><span>Headroom / เส้นตา / เอียง</span><b>${(s.headTop*100).toFixed(0)}% · ${s.eyeY!==null?(s.eyeY*100).toFixed(0)+'%':'–'} · ${a.roll.toFixed(0)}°</b></div>
+      <ul class="fb">${g.fb.map(f=>`<li class="${f.ok?'ok':''}">${f.t}</li>`).join('')}</ul>`;
+    results.push({file:file.name,ok:true,target,det:{shot:s.shot,angle:a.angle},score:g.pts,
+      headroom:+(s.headTop*100).toFixed(1),eye:s.eyeY!==null?+(s.eyeY*100).toFixed(1):null,
+      roll:+a.roll.toFixed(1),passed:g.pts>=8});
+  }else{
+    holder.insertAdjacentHTML('beforeend',`<span class="badge p">${s.shot}</span>`);
+    b.innerHTML=`<div class="kv"><span>ขนาดภาพ</span><b style="color:var(--acc)">${s.shot} — ${SHOT[s.shot].th}</b></div>
+      <div class="kv"><span>มุมกล้อง</span><b style="color:var(--acc)">${ANGLE[a.angle].full} — ${ANGLE[a.angle].th}</b></div>
+      <div class="kv"><span>Headroom</span><b>${(s.headTop*100).toFixed(0)}%</b></div>
+      <div class="kv"><span>ความเอียง</span><b>${a.roll.toFixed(1)}°</b></div>`;
+    results.push({file:file.name,ok:true,det:{shot:s.shot,angle:a.angle},score:null});
+  }
+  $('outImg').prepend(card);
+}
+function loadImg(file){return new Promise((res,rej)=>{const i=new Image();
+  i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(file);});}
+function drawOverlay(c,s,target){
+  const x=c.getContext('2d'),W=c.width,H=c.height;
+  x.strokeStyle='rgba(255,255,255,.22)';x.lineWidth=1;
+  [1/3,2/3].forEach(f=>{x.beginPath();x.moveTo(W*f,0);x.lineTo(W*f,H);x.moveTo(0,H*f);x.lineTo(W,H*f);x.stroke();});
+  const ah=s.headH*H, aw=ah*0.74, ax=s.cx*W-aw/2;
+  x.lineWidth=3;x.strokeStyle=(target&&s.shot===target.shot)?'rgba(63,185,80,.95)':'rgba(88,166,255,.95)';
+  x.strokeRect(ax,s.headTop*H,aw,ah);
+  if(s.eyeY!==null){x.beginPath();x.moveTo(0,s.eyeY*H);x.lineTo(W,s.eyeY*H);
+    x.strokeStyle='rgba(210,153,34,.8)';x.lineWidth=2;x.stroke();}
+}
+function updateKpi(){
+  const g=results.filter(r=>r.ok&&r.score!==null&&r.score!==undefined);
+  $('kN').textContent=results.length;
+  $('kAvg').textContent=g.length?(g.reduce((a,r)=>a+r.score,0)/g.length).toFixed(1):'–';
+  $('kPass').textContent=g.filter(r=>r.passed).length;
+  $('kFail').textContent=results.filter(r=>!r.ok).length;
+}
+$('clrImg').onclick=()=>{results=[];$('outImg').innerHTML='';updateKpi();$('pbImg').style.width='0';};
+$('csvImg').onclick=()=>{
+  const h=['ไฟล์','ชื่อ','ห้อง','โจทย์ขนาด','โจทย์มุม','ตรวจได้ขนาด','ตรวจได้มุม','คะแนน','Headroom%','เส้นตา%','เอียง°','สถานะ'];
+  const rows=results.map(r=>[r.file,$('stuName').value,$('stuRoom').value,
+    r.target?.shot||'',r.target?.angle||'',r.det?.shot||'',r.det?.angle||'',
+    r.score??'',r.headroom??'',r.eye??'',r.roll??'',r.ok?(r.passed?'ผ่าน':'ยังไม่ผ่าน'):'ตรวจไม่ได้']);
+  dlCsv(h,rows,'m4_image_scores');
+};
+function dlCsv(h,rows,name){
+  const csv='\uFEFF'+[h,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`${name}_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+/* ── ส่งเข้า Supabase (ใช้ค่าเดียวกับ Dashboard) ── */
+$('sendImg').onclick=async()=>{
+  const SB_URL="https://qbxasubgibsnsfrkckbr.supabase.co/rest/v1/", SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFieGFzdWJnaWJzbnNmcmtja2JyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMTg0MjAsImV4cCI6MjEwNTg5NDQyMH0.VMArWA-WRARw3JV1I8U3mVrC5CCfpc60IDq8Ik-HCBE";
+  if(SB_URL.includes('xxxxx')) return alert('ยังไม่ได้ตั้งค่า Supabase ในโค้ด (บรรทัด SB_URL / SB_KEY)');
+  if(!$('stuName').value) return alert('กรอกชื่อนักเรียนก่อนส่ง');
+  const {createClient}=await import("https://esm.sh/@supabase/supabase-js@2");
+  const sb=createClient(SB_URL,SB_KEY);
+  const batch=results.filter(r=>r.ok&&r.score!=null).map((r,i)=>({
+    room:$('stuRoom').value||'-',student_name:$('stuName').value,mission_idx:i,
+    target_shot:r.target.shot,target_angle:r.target.angle,det_shot:r.det.shot,det_angle:r.det.angle,
+    score:r.score,headroom:r.headroom,eye_line:r.eye,roll:r.roll,passed:r.passed}));
+  if(!batch.length) return alert('ไม่มีรายการที่ส่งได้');
+  const {error}=await sb.from('attempts').insert(batch);
+  alert(error?('ส่งไม่สำเร็จ: '+error.message):`ส่งคะแนน ${batch.length} รายการเรียบร้อย ✓`);
+};
+
+/* ══════════ 6. โหมดวิดีโอ ══════════ */
+hookDrop($('drop2'),$('fileVid'),f=>runVideo(f[0]));
+const vid=$('vid');
+
+async function runVideo(file){
+  if(!file||!file.type.startsWith('video/')) return;
+  $('outVid').innerHTML=''; $('stVid').textContent='กำลังอ่านไฟล์…';
+  vid.src=URL.createObjectURL(file);
+  await new Promise(r=>vid.onloadedmetadata=r);
+  const dur=vid.duration, step=+$('step').value;
+  const W=480, H=Math.round(vid.videoHeight*W/vid.videoWidth);
+  const c=document.createElement('canvas'); c.width=W; c.height=H;
+  const x=c.getContext('2d',{willReadFrequently:true});
+
+  /* 6.1 สุ่มเฟรม + หารอยตัดจาก histogram */
+  const frames=[]; let prevHist=null; const cutT=+$('cut').value/100;
+  for(let t=0.05;t<dur;t+=step){
+    await seek(t);
+    x.drawImage(vid,0,0,W,H);
+    const hist=histogram(x.getImageData(0,0,W,H));
+    const diff=prevHist?1-intersect(prevHist,hist):1;
+    frames.push({t,cut:diff>cutT,img:c.toDataURL('image/jpeg',0.6)});
+    prevHist=hist;
+    $('pbVid').style.width=(t/dur*55)+'%';
+    $('stVid').textContent=`สแกนเฟรม ${t.toFixed(1)}/${dur.toFixed(1)} วินาที`;
+  }
+  /* 6.2 รวมเฟรมเป็นช็อต */
+  const shots=[]; let cur=[frames[0]];
+  for(let i=1;i<frames.length;i++){
+    if(frames[i].cut){shots.push(cur);cur=[frames[i]];} else cur.push(frames[i]);
+  }
+  shots.push(cur);
+  /* 6.3 จำแนกแต่ละช็อต (โหวตจาก 3 เฟรม) + ตรวจการเคลื่อนกล้อง */
+  const seq=[];
+  for(let i=0;i<shots.length;i++){
+    const fr=shots[i], picks=[fr[0], fr[Math.floor(fr.length/2)], fr[fr.length-1]].filter(Boolean);
+    const votes=[], sizes=[], cxs=[];
+    for(const p of picks){
+      await seek(p.t); x.drawImage(vid,0,0,W,H);
+      const r=analyze(c);
+      if(r){votes.push(r);sizes.push(r.s.headH);cxs.push(r.s.cx);}
+    }
+    await seek(fr[Math.floor(fr.length/2)].t); x.drawImage(vid,0,0,W,H);
+    const thumb=c.toDataURL('image/jpeg',0.7);
+    let move='คงที่';
+    if(sizes.length>1){
+      const zr=Math.max(...sizes)/Math.min(...sizes), px=Math.max(...cxs)-Math.min(...cxs);
+      if(zr>1.25) move= sizes[sizes.length-1]>sizes[0] ? 'ซูม/ดอลลี่เข้า':'ซูม/ดอลลี่ออก';
+      else if(px>0.14) move='แพนกล้อง';
+    }
+    seq.push({i,start:fr[0].t,end:fr[fr.length-1].t+step,thumb,
+      det:votes.length?vote(votes):null, move});
+    $('pbVid').style.width=(55+(i+1)/shots.length*45)+'%';
+    $('stVid').textContent=`วิเคราะห์ช็อตที่ ${i+1}/${shots.length}`;
+  }
+  $('stVid').textContent=`เสร็จสิ้น — พบ ${seq.length} ช็อต ✓`;
+  renderVideo(seq,file.name,dur);
+}
+function seek(t){return new Promise(r=>{vid.onseeked=()=>r();vid.currentTime=Math.min(t,vid.duration-0.03);});}
+function histogram(d){                       // RGB 4×4×4 = 64 bins
+  const h=new Float32Array(64), p=d.data;
+  for(let i=0;i<p.length;i+=16){             // sample ทุก 4 px เพื่อความเร็ว
+    h[(p[i]>>6)*16+(p[i+1]>>6)*4+(p[i+2]>>6)]++;
+  }
+  let s=0;for(const v of h)s+=v;
+  for(let i=0;i<64;i++)h[i]/=s||1; return h;
+}
+const intersect=(a,b)=>{let s=0;for(let i=0;i<64;i++)s+=Math.min(a[i],b[i]);return s;};
+function vote(v){                            // โหวตขนาด/มุมที่พบบ่อยสุด
+  const top=k=>{const m={};v.forEach(o=>{const x=k==='shot'?o.s.shot:o.a.angle;m[x]=(m[x]||0)+1;});
+    return Object.entries(m).sort((a,b)=>b[1]-a[1])[0][0];};
+  return{shot:top('shot'),angle:top('angle'),
+    roll:v.reduce((a,o)=>a+o.a.roll,0)/v.length};
+}
+/* 6.4 เทียบลำดับด้วย Levenshtein + backtrace */
+function align(stu,ref){
+  const n=stu.length,m=ref.length;
+  const D=Array.from({length:n+1},(_,i)=>Array.from({length:m+1},(_,j)=>i===0?j:j===0?i:0));
+  for(let i=1;i<=n;i++)for(let j=1;j<=m;j++){
+    const same = stu[i-1] && stu[i-1].shot===ref[j-1].shot &&
+                 (ref[j-1].angle==='ANY'||stu[i-1].angle===ref[j-1].angle);
+    D[i][j]=Math.min(D[i-1][j]+1, D[i][j-1]+1, D[i-1][j-1]+(same?0:1));
+  }
+  const ops=[];let i=n,j=m;
+  while(i>0||j>0){
+    if(i>0&&j>0&&D[i][j]===D[i-1][j-1]+((stu[i-1]&&stu[i-1].shot===ref[j-1].shot&&(ref[j-1].angle==='ANY'||stu[i-1].angle===ref[j-1].angle))?0:1)){
+      const same=stu[i-1]&&stu[i-1].shot===ref[j-1].shot&&(ref[j-1].angle==='ANY'||stu[i-1].angle===ref[j-1].angle);
+      ops.unshift({op:same?'ok':'sub',s:i-1,r:j-1});i--;j--;
+    } else if(i>0&&D[i][j]===D[i-1][j]+1){ops.unshift({op:'extra',s:i-1,r:null});i--;}
+    else {ops.unshift({op:'miss',s:null,r:j-1});j--;}
+  }
+  return{dist:D[n][m],ops};
+}
+function renderVideo(seq,fname,dur){
+  const ref=$('sb').value.split(',').map(t=>t.trim()).filter(Boolean).map(t=>{
+    const [sh,an]=t.split('/');return{shot:(sh||'').toUpperCase(),angle:(an||'ANY').toUpperCase()};});
+  const stu=seq.map(s=>s.det?{shot:s.det.shot,angle:s.det.angle}:{shot:'?',angle:'?'});
+  const {dist,ops}=align(stu,ref);
+  const sim=Math.max(0,(1-dist/Math.max(stu.length,ref.length,1))*100);
+  const hitIdx=new Set(ops.filter(o=>o.op==='ok').map(o=>o.s));
+  // คะแนน: ลำดับ 6 + ครบจำนวนช็อต 2 + ความหลากหลายขนาดภาพ 2
+  const variety=new Set(stu.map(s=>s.shot)).size;
+  const pCount=Math.max(0,2-Math.abs(stu.length-ref.length)*0.7);
+  const pVar=Math.min(2,variety/Math.max(1,new Set(ref.map(r=>r.shot)).size)*2);
+  const total=Math.min(10, sim/100*6 + pCount + pVar);
+
+  $('outVid').innerHTML=`
+  <div class="kpis">
+    <div class="kpi"><div class="n" style="color:${total>=8?'var(--ok)':total>=5?'var(--warn)':'var(--bad)'}">${total.toFixed(1)}</div><div class="l">คะแนนรวม /10</div></div>
+    <div class="kpi"><div class="n">${sim.toFixed(0)}%</div><div class="l">ความตรงของลำดับช็อต</div></div>
+    <div class="kpi"><div class="n">${seq.length}<span style="font-size:15px;color:var(--dim)"> / ${ref.length}</span></div><div class="l">ช็อตที่ถ่าย / ที่กำหนด</div></div>
+    <div class="kpi"><div class="n">${variety}</div><div class="l">ขนาดภาพที่ใช้ (ความหลากหลาย)</div></div>
+    <div class="kpi"><div class="n">${dur.toFixed(0)}<span style="font-size:15px;color:var(--dim)"> วิ</span></div><div class="l">ความยาวคลิป</div></div>
+  </div>
+
+  <div class="card"><h3>ไทม์ไลน์ช็อตที่ตรวจพบ — ${fname}</h3>
+    <div class="tl">${seq.map((s,i)=>`<div class="sh ${hitIdx.has(i)?'hit':'miss'}">
+      <span class="no">#${i+1}</span><img src="${s.thumb}" style="width:100%;display:block;aspect-ratio:16/9;object-fit:cover">
+      <div class="lb"><b style="color:${hitIdx.has(i)?'var(--ok)':'var(--bad)'}">${s.det?s.det.shot:'?'}</b>
+      ${s.det?' · '+s.det.angle:''}<br><span style="color:var(--dim)">${s.start.toFixed(1)}–${s.end.toFixed(1)}วิ · ${s.move}</span></div></div>`).join('')}</div>
+    <p class="note">กรอบเขียว = ตรงกับสตอรีบอร์ด • กรอบแดง = ไม่ตรงหรือเกินมา • “?” = ช็อตที่ไม่พบบุคคล (ภาพวิว/สิ่งของ) ระบบไม่นับคะแนนให้ ต้องให้ครูตรวจเอง</p>
+  </div>
+
+  <div class="card"><h3>ผลเทียบกับสตอรีบอร์ดทีละช็อต</h3>
+    <table><thead><tr><th>ลำดับ</th><th>สตอรีบอร์ด</th><th>นักเรียนถ่ายได้</th><th>ผล</th><th>คำแนะนำ</th></tr></thead><tbody>
+    ${ops.map((o,k)=>{
+      const R=o.r!==null?ref[o.r]:null, S=o.s!==null?stu[o.s]:null;
+      const lbl={ok:['ตรง','var(--ok)'],sub:['ไม่ตรง','var(--bad)'],
+                 extra:['ช็อตเกิน','var(--warn)'],miss:['ขาดช็อต','var(--bad)']}[o.op];
+      let tip='—';
+      if(o.op==='sub'&&R&&S){
+        const gap=SHOT_ORDER.indexOf(S.shot)-SHOT_ORDER.indexOf(R.shot);
+        tip = S.shot!==R.shot ? `ต้องการ ${R.shot} แต่ได้ ${S.shot} — ${gap<0?'ถ่ายให้ใกล้ขึ้น':'ถ่ายให้กว้างขึ้น'}`
+            : `ขนาดถูก แต่มุมควรเป็น ${ANGLE[R.angle]?.full||R.angle}`;
+      } else if(o.op==='miss') tip=`ยังไม่ได้ถ่ายช็อต ${R.shot}/${R.angle} — ต้องเพิ่ม`;
+      else if(o.op==='extra') tip='มีช็อตเกินจากสตอรีบอร์ด (ถ้าตั้งใจเพิ่มเพื่อเล่าเรื่อง ครูพิจารณาให้คะแนนเสริมได้)';
+      return `<tr><td>${k+1}</td><td>${R?R.shot+'/'+R.angle:'–'}</td>
+        <td>${S?S.shot+'/'+S.angle:'–'}</td>
+        <td style="color:${lbl[1]};font-weight:700">${lbl[0]}</td><td style="white-space:normal">${tip}</td></tr>`;
+    }).join('')}</tbody></table>
+    <div class="bar" style="margin-top:11px"><button id="csvVid">⬇ ดาวน์โหลดผลเป็น CSV</button></div>
+  </div>`;
+  $('csvVid').onclick=()=>dlCsv(['ช็อตที่','เริ่ม(วิ)','จบ(วิ)','ขนาดภาพ','มุมกล้อง','การเคลื่อนกล้อง','ตรงสตอรีบอร์ด'],
+    seq.map((s,i)=>[i+1,s.start.toFixed(1),s.end.toFixed(1),s.det?.shot||'?',s.det?.angle||'?',s.move,hitIdx.has(i)?'ตรง':'ไม่ตรง']),
+    'm4_video_'+fname.replace(/\.\w+$/,''));
+}
+</script>
+</body>
+</html>

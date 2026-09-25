@@ -1,0 +1,10 @@
+{
+  "name": "มุมกล้องและขนาดของภาพ",
+  "short_name": "Viewfinder",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "orientation": "any",
+  "description": "สื่อนวัตกรรมฝึกมุมกล้องและขนาดภาพ สำหรับนักเรียนชั้นมัธยมศึกษาปีที่ 5"
+}

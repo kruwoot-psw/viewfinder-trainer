@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard ครู — Viewfinder Trainer</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--txt:#e6edf3;--dim:#8b949e;--acc:#58a6ff;--ok:#3fb950;--warn:#d29922;--bad:#f85149}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Sarabun",system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:16px}
+  h1{font-size:20px;margin-bottom:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+  .card h3{font-size:13px;color:var(--dim);margin-bottom:10px;letter-spacing:.3px}
+  input,select,button{background:#0d1117;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-family:inherit;font-size:14px}
+  button{background:#21262d;cursor:pointer} button:hover{border-color:var(--acc)}
+  button.primary{background:var(--acc);color:#04121f;font-weight:700;border-color:var(--acc)}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .kpi .n{font-size:30px;font-weight:800;line-height:1.1}
+  .kpi .l{font-size:12px;color:var(--dim);margin-top:2px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{padding:8px 9px;text-align:left;border-bottom:1px solid #21262d;white-space:nowrap}
+  th{color:var(--dim);font-weight:600;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--panel)}
+  tbody tr:hover{background:#1c2129}
+  .scroll{max-height:420px;overflow:auto;border-radius:8px}
+  .pill{border-radius:20px;padding:2px 9px;font-size:12px;font-weight:700}
+  .g{background:rgba(63,185,80,.18);color:var(--ok)} .y{background:rgba(210,153,34,.18);color:var(--warn)} .r{background:rgba(248,81,73,.18);color:var(--bad)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+  .brow{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px}
+  .brow .nm{width:120px;color:var(--dim);flex-shrink:0}
+  .brow .tr{flex:1;background:#21262d;border-radius:4px;height:16px;overflow:hidden}
+  .brow .tr i{display:block;height:100%;background:var(--acc)}
+  .brow .vl{width:42px;text-align:right;font-weight:700}
+  #login{max-width:360px;margin:60px auto}
+  .hide{display:none}
+</style>
+</head>
+<body>
+
+<div id="login" class="card">
+  <h1>เข้าสู่ระบบครู</h1>
+  <div style="display:grid;gap:8px">
+    <input id="em" type="email" placeholder="อีเมลครู">
+    <input id="pw" type="password" placeholder="รหัสผ่าน">
+    <button class="primary" id="btnIn">เข้าสู่ระบบ</button>
+    <span id="err" style="color:var(--bad);font-size:13px"></span>
+  </div>
+</div>
+
+<div id="app" class="hide">
+  <h1>📊 Dashboard — มุมกล้องและขนาดภาพ</h1>
+
+  <div class="card bar">
+    <select id="fRoom"><option value="">ทุกห้อง</option></select>
+    <input type="date" id="fFrom"><span style="color:var(--dim)">ถึง</span><input type="date" id="fTo">
+    <input id="fName" placeholder="ค้นหาชื่อนักเรียน">
+    <button id="btnGo" class="primary">กรอง</button>
+    <button id="btnCsv">⬇ ดาวน์โหลด CSV</button>
+    <button id="btnOut" style="margin-left:auto">ออกจากระบบ</button>
+  </div>
+
+  <div class="kpis" style="margin-bottom:12px">
+    <div class="kpi"><div class="n" id="kSt">0</div><div class="l">นักเรียนที่ส่งงาน</div></div>
+    <div class="kpi"><div class="n" id="kAt">0</div><div class="l">จำนวนครั้งที่ฝึก</div></div>
+    <div class="kpi"><div class="n" id="kAvg">0.0</div><div class="l">คะแนนเฉลี่ย (เต็ม 10)</div></div>
+    <div class="kpi"><div class="n" id="kPass">0%</div><div class="l">อัตราผ่านภารกิจ</div></div>
+    <div class="kpi"><div class="n" id="kHard">–</div><div class="l">ภารกิจที่ยากที่สุด</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h3>คะแนนเฉลี่ยรายภารกิจ</h3><div id="chMission"></div></div>
+    <div class="card"><h3>ข้อผิดพลาดที่พบบ่อย (โจทย์ → ที่ทำได้จริง)</h3><div id="chErr"></div></div>
+  </div>
+
+  <div class="card">
+    <h3>สรุปรายคน — คลิกหัวคอลัมน์เพื่อเรียงลำดับ</h3>
+    <div class="scroll"><table id="tbSum">
+      <thead><tr><th data-k="room">ห้อง</th><th data-k="student_no">เลขที่</th><th data-k="student_name">ชื่อ</th>
+      <th data-k="attempts">ครั้งที่ฝึก</th><th data-k="avg_score">เฉลี่ย</th><th data-k="best_score">สูงสุด</th>
+      <th data-k="missions_cleared">ภารกิจที่ผ่าน</th><th data-k="last_active">ล่าสุด</th></tr></thead>
+      <tbody></tbody></table></div>
+  </div>
+
+  <div class="card">
+    <h3>รายการล่าสุด 200 รายการ — ช่อง “คะแนนครู” แก้แล้วบันทึกอัตโนมัติ</h3>
+    <div class="scroll"><table id="tbRaw">
+      <thead><tr><th>เวลา</th><th>ห้อง</th><th>ชื่อ</th><th>โจทย์</th><th>ตรวจได้</th>
+      <th>คะแนน</th><th>คะแนนครู</th><th>หมายเหตุ</th></tr></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const SB_URL="https://qbxasubgibsnsfrkckbr.supabase.co/rest/v1/";      // ⚠️ แก้เป็นของคุณ
+const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFieGFzdWJnaWJzbnNmcmtja2JyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMTg0MjAsImV4cCI6MjEwNTg5NDQyMH0.VMArWA-WRARw3JV1I8U3mVrC5CCfpc60IDq8Ik-HCBE";          // ⚠️ แก้เป็นของคุณ
+const sb=createClient(SB_URL,SB_KEY);
+const $=id=>document.getElementById(id);
+const SHOT_TH={ELS:'ไกลมาก',LS:'เต็มตัว',MLS:'ครึ่งเข่า',MS:'ครึ่งตัว',MCU:'อกขึ้นไป',CU:'ใกล้',ECU:'ใกล้มาก'};
+let rows=[], sum=[], sortK='avg_score', sortDir=-1;
+
+/* ── auth ── */
+$('btnIn').onclick=async()=>{
+  const {error}=await sb.auth.signInWithPassword({email:$('em').value,password:$('pw').value});
+  if(error) $('err').textContent='เข้าสู่ระบบไม่สำเร็จ: '+error.message; else boot();
+};
+$('btnOut').onclick=async()=>{await sb.auth.signOut();location.reload();};
+sb.auth.getSession().then(({data})=>{ if(data.session) boot(); });
+
+async function boot(){
+  $('login').classList.add('hide'); $('app').classList.remove('hide');
+  const d=new Date(); d.setDate(d.getDate()-30);
+  $('fFrom').value=d.toISOString().slice(0,10);
+  $('fTo').value=new Date().toISOString().slice(0,10);
+  await load();
+  sb.channel('live').on('postgres_changes',{event:'INSERT',schema:'public',table:'attempts'},()=>load()).subscribe();
+}
+$('btnGo').onclick=load;
+
+/* ── ดึงข้อมูล ── */
+async function load(){
+  let q=sb.from('attempts').select('*').order('created_at',{ascending:false}).limit(3000);
+  if($('fRoom').value) q=q.eq('room',$('fRoom').value);
+  if($('fFrom').value) q=q.gte('created_at',$('fFrom').value+'T00:00:00');
+  if($('fTo').value)   q=q.lte('created_at',$('fTo').value+'T23:59:59');
+  if($('fName').value) q=q.ilike('student_name','%'+$('fName').value+'%');
+  const {data,error}=await q;
+  if(error) return alert(error.message);
+  rows=data||[];
+  fillRooms(); buildSummary(); renderKpi(); renderCharts(); renderSum(); renderRaw();
+}
+function fillRooms(){
+  const cur=$('fRoom').value;
+  const set=[...new Set(rows.map(r=>r.room))].sort();
+  if(set.length && $('fRoom').options.length<=1)
+    $('fRoom').innerHTML='<option value="">ทุกห้อง</option>'+set.map(r=>`<option${r===cur?' selected':''}>${r}</option>`).join('');
+}
+const eff=r=>r.teacher_score??r.score;
+
+function buildSummary(){
+  const m=new Map();
+  rows.forEach(r=>{
+    const k=r.room+'|'+r.student_name;
+    if(!m.has(k)) m.set(k,{room:r.room,student_no:r.student_no,student_name:r.student_name,
+      attempts:0,total:0,best_score:0,cleared:new Set(),last_active:r.created_at});
+    const o=m.get(k);
+    o.attempts++; o.total+=eff(r); o.best_score=Math.max(o.best_score,eff(r));
+    if(r.passed) o.cleared.add(r.mission_idx);
+    if(r.created_at>o.last_active) o.last_active=r.created_at;
+  });
+  sum=[...m.values()].map(o=>({...o,avg_score:o.total/o.attempts,missions_cleared:o.cleared.size}));
+}
+function renderKpi(){
+  $('kSt').textContent=sum.length;
+  $('kAt').textContent=rows.length;
+  const avg=rows.length? rows.reduce((a,r)=>a+eff(r),0)/rows.length:0;
+  $('kAvg').textContent=avg.toFixed(1);
+  $('kAvg').style.color= avg>=8?'var(--ok)':avg>=5?'var(--warn)':'var(--bad)';
+  $('kPass').textContent=rows.length? Math.round(rows.filter(r=>r.passed).length/rows.length*100)+'%':'0%';
+  const g=groupMission(); const hard=g.sort((a,b)=>a.avg-b.avg)[0];
+  $('kHard').textContent=hard? `${hard.shot}+${hard.angle}`:'–';
+  $('kHard').style.fontSize='20px';
+}
+function groupMission(){
+  const m=new Map();
+  rows.forEach(r=>{
+    const k=`${r.target_shot}|${r.target_angle}`;
+    if(!m.has(k)) m.set(k,{shot:r.target_shot,angle:r.target_angle,n:0,t:0,pass:0});
+    const o=m.get(k); o.n++; o.t+=eff(r); if(r.passed)o.pass++;
+  });
+  return [...m.values()].map(o=>({...o,avg:o.t/o.n}));
+}
+function bars(el,items,max){
+  el.innerHTML=items.map(i=>`<div class="brow"><span class="nm">${i.name}</span>
+    <span class="tr"><i style="width:${Math.min(100,i.val/max*100)}%;background:${i.col||'var(--acc)'}"></i></span>
+    <span class="vl">${i.txt}</span></div>`).join('')||'<span style="color:var(--dim);font-size:13px">ยังไม่มีข้อมูล</span>';
+}
+function renderCharts(){
+  bars($('chMission'), groupMission().sort((a,b)=>b.avg-a.avg).map(g=>({
+    name:`${g.shot}+${g.angle}`, val:g.avg, txt:g.avg.toFixed(1),
+    col:g.avg>=8?'var(--ok)':g.avg>=5?'var(--warn)':'var(--bad)'})), 10);
+  const e=new Map();
+  rows.filter(r=>!r.passed).forEach(r=>{
+    if(r.target_shot!==r.det_shot){const k=`ขนาด ${r.target_shot}→${r.det_shot}`;e.set(k,(e.get(k)||0)+1);}
+    if(r.target_angle!==r.det_angle){const k=`มุม ${r.target_angle}→${r.det_angle}`;e.set(k,(e.get(k)||0)+1);}
+  });
+  const top=[...e.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const mx=top[0]?.[1]||1;
+  bars($('chErr'), top.map(([k,v])=>({name:k,val:v,txt:v,col:'var(--bad)'})), mx);
+}
+/* ── ตารางสรุป ── */
+document.querySelectorAll('#tbSum th').forEach(th=>th.onclick=()=>{
+  const k=th.dataset.k; sortDir = (k===sortK)? -sortDir : -1; sortK=k; renderSum();
+});
+function renderSum(){
+  const d=[...sum].sort((a,b)=>{const x=a[sortK],y=b[sortK];
+    return (typeof x==='number'? x-y : String(x).localeCompare(String(y)))*sortDir;});
+  $('tbSum').tBodies[0].innerHTML=d.map(s=>{
+    const c=s.avg_score>=8?'g':s.avg_score>=5?'y':'r';
+    return `<tr><td>${s.room}</td><td>${s.student_no||'–'}</td><td>${s.student_name}</td>
+      <td>${s.attempts}</td><td><span class="pill ${c}">${s.avg_score.toFixed(1)}</span></td>
+      <td>${s.best_score.toFixed(1)}</td><td>${s.missions_cleared}</td>
+      <td style="color:var(--dim)">${new Date(s.last_active).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'})}</td></tr>`;
+  }).join('');
+}
+/* ── ตารางดิบ + แก้คะแนน ── */
+function renderRaw(){
+  $('tbRaw').tBodies[0].innerHTML=rows.slice(0,200).map(r=>`<tr>
+    <td style="color:var(--dim)">${new Date(r.created_at).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'})}</td>
+    <td>${r.room}</td><td>${r.student_name}</td>
+    <td>${r.target_shot}+${r.target_angle}</td>
+    <td style="color:${r.passed?'var(--ok)':'var(--bad)'}">${r.det_shot}+${r.det_angle}</td>
+    <td>${(+r.score).toFixed(1)}</td>
+    <td><input data-id="${r.id}" data-f="teacher_score" type="number" step="0.5" min="0" max="10"
+         value="${r.teacher_score??''}" style="width:70px;padding:4px 6px"></td>
+    <td><input data-id="${r.id}" data-f="teacher_note" value="${r.teacher_note??''}"
+         placeholder="หมายเหตุ" style="width:180px;padding:4px 6px"></td></tr>`).join('');
+  $('tbRaw').querySelectorAll('input').forEach(i=>i.onchange=async()=>{
+    const v=i.dataset.f==='teacher_score' ? (i.value===''?null:+i.value) : i.value;
+    const {error}=await sb.from('attempts').update({[i.dataset.f]:v}).eq('id',i.dataset.id);
+    i.style.borderColor = error?'var(--bad)':'var(--ok)';
+  });
+}
+/* ── CSV ── */
+$('btnCsv').onclick=()=>{
+  const head=['เวลา','ห้อง','เลขที่','ชื่อ','โจทย์ขนาด','โจทย์มุม','ตรวจได้ขนาด','ตรวจได้มุม','คะแนน','คะแนนครู','ผ่าน','หมายเหตุ'];
+  const body=rows.map(r=>[new Date(r.created_at).toLocaleString('th-TH'),r.room,r.student_no||'',r.student_name,
+    r.target_shot,r.target_angle,r.det_shot,r.det_angle,r.score,r.teacher_score??'',r.passed?'ผ่าน':'ยังไม่ผ่าน',
+    (r.teacher_note||'').replace(/"/g,'""')]);
+  const csv='\uFEFF'+[head,...body].map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`viewfinder_scores_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+};
+</script>
+</body>
+</html>
